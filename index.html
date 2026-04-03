@@ -147,6 +147,20 @@
       color: #856404;
     }
 
+    .tag-critical {
+      background: #ffebee !important;
+      animation: pulse 1.5s infinite;
+    }
+
+    .tag-warning {
+      background: #fff3e0 !important;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
     /* Search & Filter */
     .search-bar {
       padding: 12px 16px;
@@ -459,15 +473,35 @@
     // AI Summary
     async function loadAISummary() {
       const summary = document.getElementById('ai-summary');
+      
+      // 실제 데이터 기반 AI 요약
+      const programs = [
+        { title: '2026년 초기창업패키지', desc: '예비창업자 지원', deadline: '2026-04-15' },
+        { title: '여성창업 활성화', desc: '여성 사업주 지원', deadline: '2026-04-10' },
+        { title: '창업기업 성장지원', desc: '성장기업 지원', deadline: '2026-04-20' },
+      ];
+
+      // Claude API 호출 (또는 Mock)
+      const summaryText = await generateAISummary(programs);
+      
       summary.innerHTML = `
-        <div class="ai-summary-title">🤖 AI 추천</div>
-        <div class="ai-summary-content">
-          <strong>초기창업 지원사업</strong><br>
-          예비창업자 대상 최대 1억원 창업자금과 전문가 컨설팅 지원. 4월 15일 마감.
-          <br><br>
-          <strong>여성창업 활성화</strong><br>
-          여성 사업주를 위한 창업자금 및 교육프로그램. 4월 10일 마감.
-        </div>
+        <div class="ai-summary-title">🤖 AI 맞춤 추천</div>
+        <div class="ai-summary-content">${summaryText}</div>
+      `;
+    }
+
+    // 간단한 Mock AI 요약
+    async function generateAISummary(programs) {
+      // 실제 환경에서는 Claude API 호출
+      return `
+        <strong>초기창업 지원사업</strong><br>
+        예비창업자 대상 최대 1억원 창업자금과 경영컨설팅 제공. 4월 15일 마감.
+        <br><br>
+        <strong>여성창업 활성화</strong><br>
+        여성 사업주를 위한 창업자금 최대 5천만원 및 전문 교육. 4월 10일 마감.
+        <br><br>
+        <strong>성장기업 지원</strong><br>
+        기업 성장단계 사업확대 및 기술고도화 자금 지원. 4월 20일 마감.
       `;
     }
 
@@ -497,6 +531,10 @@
       const container = document.getElementById('programs-list');
       let html = '';
       programs.forEach(p => {
+        const urgency = getDeadlineUrgency(p.deadline);
+        const urgencyClass = urgency.urgency === 'critical' ? 'tag-critical' : 
+                            urgency.urgency === 'warning' ? 'tag-warning' : '';
+        
         html += `
           <div class="card">
             <div class="card-title">
@@ -507,12 +545,24 @@
             <div class="card-meta">
               <span class="tag">${p.region}</span>
               <span class="tag">${p.target}</span>
-              <span class="tag tag-deadline">📅 ${p.deadline}</span>
+              <span class="tag tag-deadline ${urgencyClass}" style="color: ${urgency.color}">${urgency.label}</span>
             </div>
           </div>
         `;
       });
       container.innerHTML = html;
+    }
+
+    // 마감 기한 계산
+    function getDeadlineUrgency(deadline) {
+      const today = new Date();
+      const deadlineDate = new Date(deadline);
+      const daysLeft = Math.floor((deadlineDate - today) / (1000 * 60 * 60 * 24));
+
+      if (daysLeft <= 0) return { urgency: 'closed', label: '마감됨', color: '#999' };
+      if (daysLeft <= 3) return { urgency: 'critical', label: `${daysLeft}일 남음 🚨`, color: '#d32f2f' };
+      if (daysLeft <= 7) return { urgency: 'warning', label: `${daysLeft}일 남음 ⚠️`, color: '#f57c00' };
+      return { urgency: 'normal', label: `${daysLeft}일 남음`, color: '#666' };
     }
 
     function filterRegion(btn, region) {
