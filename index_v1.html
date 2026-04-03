@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4CAF50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LaunchUP">
+  <meta name="description" content="창업 준비생이 몰라서 손해보는 정보, 한 곳에서">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%234CAF50' width='180' height='180'/><text x='50%' y='50%' font-size='90' font-weight='bold' fill='white' text-anchor='middle' dy='.3em'>UP</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>LaunchUP - 창업정보</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    .container { display: flex; flex-direction: column; height: 100vh; }
+    
+    /* Header */
+    .header { background: white; border-bottom: 1px solid #e0e0e0; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 18px; font-weight: bold; color: #1a1a1a; }
+    .user-btn { background: none; border: none; font-size: 24px; cursor: pointer; }
+    
+    /* Content */
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* Search & Filter */
+    .search-section { padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0; }
+    .search-input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    
+    .filter-section { padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0; display: flex; gap: 16px; overflow-x: auto; }
+    .filter-group { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+    .filter-label { font-size: 12px; font-weight: bold; color: #666; }
+    .filter-btn { padding: 4px 12px; border: 1px solid #ccc; border-radius: 16px; background: white; cursor: pointer; font-size: 12px; }
+    .filter-btn.active { background: #4CAF50; color: white; border-color: #4CAF50; }
+    
+    /* Tabs */
+    .tabs { display: flex; background: white; border-bottom: 1px solid #e0e0e0; }
+    .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-size: 12px; color: #666; border-bottom: 2px solid transparent; }
+    .tab-btn.active { color: #4CAF50; border-bottom-color: #4CAF50; }
+    
+    /* Tab Content */
+    .tab-content { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+    .tab-content.active { display: block; }
+    
+    .section-title { font-size: 14px; font-weight: bold; margin-bottom: 12px; color: #1a1a1a; }
+    
+    /* Card */
+    .program-card { background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid #e0e0e0; }
+    .program-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; }
+    .program-title { font-weight: bold; font-size: 13px; color: #1a1a1a; flex: 1; }
+    .star { font-size: 18px; cursor: pointer; }
+    .program-summary { font-size: 12px; color: #555; margin-bottom: 8px; line-height: 1.4; white-space: pre-wrap; }
+    .program-deadline { font-size: 11px; color: #999; }
+    
+    .news-card { background: white; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid #e0e0e0; }
+    .news-card h3 { font-size: 13px; font-weight: bold; margin-bottom: 4px; color: #1a1a1a; }
+    .news-card p { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .date { font-size: 11px; color: #999; }
+    
+    /* Modal */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: 8px; padding: 24px; width: 90%; max-width: 400px; }
+    .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { font-size: 12px; display: block; margin-bottom: 4px; color: #666; }
+    .form-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .btn-primary { width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; margin-top: 8px; }
+    .btn-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🚀 LaunchUP</h1>
+      <button class="user-btn" onclick="toggleAuthModal()">👤</button>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Programs Tab -->
+      <div id="programs-tab" class="tab-content active">
+        <div class="search-section">
+          <input type="text" id="search-input" class="search-input" placeholder="지원사업 검색..." onkeyup="searchPrograms(this.value)">
+        </div>
+        <div class="filter-section">
+          <div class="filter-group">
+            <span class="filter-label">지역:</span>
+            <button class="filter-btn region-btn" onclick="filterRegion(this, '서울')">서울</button>
+            <button class="filter-btn region-btn" onclick="filterRegion(this, '경기')">경기</button>
+            <button class="filter-btn region-btn" onclick="filterRegion(this, '전국')">전국</button>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">대상:</span>
+            <button class="filter-btn target-btn" onclick="filterTarget(this, '초기창업')">초기</button>
+            <button class="filter-btn target-btn" onclick="filterTarget(this, '성장기')">성장</button>
+            <button class="filter-btn target-btn" onclick="filterTarget(this, '여성창업가')">여성</button>
+          </div>
+        </div>
+        <div class="section" id="programs-list">
+          <div class="section-title">📋 지원사업</div>
+        </div>
+      </div>
+
+      <!-- News Tab -->
+      <div id="news-tab" class="tab-content">
+        <div class="section" id="news-list">
+          <div class="section-title">🔥 핫 토픽</div>
+        </div>
+      </div>
+
+      <!-- Home Tab -->
+      <div id="home-tab" class="tab-content">
+        <div class="section">
+          <div class="section-title">🏠 홈</div>
+          <div style="font-size: 12px; color: #666; line-height: 1.6;">
+            <p>📋 <strong>지원사업</strong> - 정부 지원 공고 검색</p>
+            <p>🔥 <strong>뉴스</strong> - 최신 창업 뉴스</p>
+            <p>⭐ <strong>북마크</strong> - 관심 공고 저장</p>
+            <p style="margin-top: 16px;">👤 우측 상단에서 로그인/회원가입 가능합니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(event, 'home-tab', this)">🏠 홈</button>
+      <button class="tab-btn" onclick="switchTab(event, 'programs-tab', this)">📋 지원</button>
+      <button class="tab-btn" onclick="switchTab(event, 'news-tab', this)">🔥 뉴스</button>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal">
+    <div class="modal-content">
+      <button class="btn-close" onclick="toggleAuthModal()">✕</button>
+      <div class="modal-title" id="auth-title">로그인</div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>이메일</label>
+          <input type="email" id="email" required>
+        </div>
+        <div class="form-group">
+          <label>비밀번호</label>
+          <input type="password" id="password" required>
+        </div>
+        <button type="submit" class="btn-primary" id="auth-btn">로그인</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let isSignUp = false;
+    let currentFilters = { region: null, target: null, search: '' };
+
+    // Supabase 초기화
+    function initSupabase() {
+      const SUPABASE_URL = 'https://vqgdhrydpsbiqtfbvdjm.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_OLYDPJY_m19_caqVnbEAsQ_XV0ztwff';
+      if (window.supabase) {
+        window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+    }
+
+    // Service Worker + 알림
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Auth Modal
+    function toggleAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      modal.classList.toggle('active');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        currentUser = { id: 'user_' + Date.now(), email, createdAt: new Date().toISOString() };
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        toggleAuthModal();
+        document.getElementById('email').value = '';
+        document.getElementById('password').value = '';
+        await loadPrograms();
+      } catch (error) {
+        alert('❌ 로그인 실패: ' + error.message);
+      }
+    }
+
+    // Tabs
+    async function switchTab(e, tabId, btn) {
+      if (!currentUser) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+
+      if (tabId === 'programs-tab') await loadPrograms();
+      else if (tabId === 'news-tab') await loadNews();
+    }
+
+    // Programs
+    async function loadPrograms(applyFilters = true) {
+      if (!currentUser) return;
+      try {
+        let programs = await fetchProgramsFromAPI();
+        if (applyFilters) programs = filterPrograms(programs);
+        displayPrograms(programs);
+      } catch (error) {
+        console.error('프로그램 로드 실패:', error);
+      }
+    }
+
+    function filterPrograms(programs) {
+      return programs.filter(p => {
+        const matchRegion = !currentFilters.region || p.region === currentFilters.region;
+        const matchTarget = !currentFilters.target || p.target === currentFilters.target;
+        const matchSearch = !currentFilters.search || p.title?.toLowerCase().includes(currentFilters.search.toLowerCase());
+        return matchRegion && matchTarget && matchSearch;
+      });
+    }
+
+    async function fetchProgramsFromAPI() {
+      if (window.supabase) {
+        try {
+          const { data } = await window.supabase.from('programs_cache').select('*').limit(50);
+          if (data && data.length > 0) return data;
+        } catch (e) {}
+      }
+      return getMockPrograms();
+    }
+
+    function getMockPrograms() {
+      return [
+        { id: 'p1', title: '2026년 초기창업패키지', description: '예비창업자 지원', summary: '• 초기 창업 단계\n• 최대 1억원 지원\n• 경영컨설팅 제공', deadline: '2026-04-15', region: '서울', target: '초기창업' },
+        { id: 'p2', title: '창업기업 성장지원', description: '성장기업 지원', summary: '• 성장 단계 기업\n• 사업확대 자금\n• 기술고도화 지원', deadline: '2026-04-20', region: '경기', target: '성장기' },
+        { id: 'p3', title: '여성창업 활성화', description: '여성창업자 지원', summary: '• 여성 사업주\n• 최대 5천만원\n• 전문 교육 제공', deadline: '2026-04-10', region: '전국', target: '여성창업가' },
+      ];
+    }
+
+    function displayPrograms(programs) {
+      const container = document.getElementById('programs-list');
+      let html = '<div class="section-title">📋 지원사업</div>';
+      programs.forEach(p => {
+        html += `<div class="program-card">
+          <div class="program-header">
+            <div class="program-title">${p.title}</div>
+            <span class="star" data-program-id="${p.id}" onclick="toggleBookmark(this)">☆</span>
+          </div>
+          <div class="program-summary">${p.summary || p.description}</div>
+          <div class="program-deadline">마감: ${p.deadline}</div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // Filters
+    async function filterRegion(btn, region) {
+      if (!currentUser) return;
+      document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.toggle('active');
+      currentFilters.region = btn.classList.contains('active') ? region : null;
+      await loadPrograms();
+    }
+
+    async function filterTarget(btn, target) {
+      if (!currentUser) return;
+      document.querySelectorAll('.target-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.toggle('active');
+      currentFilters.target = btn.classList.contains('active') ? target : null;
+      await loadPrograms();
+    }
+
+    async function searchPrograms(query) {
+      if (!currentUser) return;
+      currentFilters.search = query;
+      await loadPrograms();
+    }
+
+    // Bookmarks
+    async function toggleBookmark(star) {
+      if (!currentUser) return;
+      const programId = star.getAttribute('data-program-id');
+      if (star.textContent === '☆') {
+        star.textContent = '★';
+        if (window.supabase) {
+          await window.supabase.from('bookmarks').insert({ user_id: currentUser.id, program_id: programId });
+        }
+      } else {
+        star.textContent = '☆';
+        if (window.supabase) {
+          await window.supabase.from('bookmarks').delete().eq('user_id', currentUser.id).eq('program_id', programId);
+        }
+      }
+    }
+
+    // News
+    async function loadNews() {
+      if (!currentUser) return;
+      const news = getMockNews();
+      displayNews(news);
+    }
+
+    function getMockNews() {
+      return [
+        { title: '2026년 창업 지원사업 공모 시작', description: '정부에서 2026년 창업지원 공모 공식 시작', published_at: new Date().toISOString() },
+        { title: 'AI 스타트업 300억원 규모 공모', description: 'AI 기반 스타트업을 위한 대규모 지원사업', published_at: new Date(Date.now() - 24*60*60*1000).toISOString() },
+      ];
+    }
+
+    function displayNews(newsList) {
+      const container = document.getElementById('news-list');
+      let html = '<div class="section-title">🔥 핫 토픽</div>';
+      newsList.forEach(n => {
+        html += `<div class="news-card"><h3>${n.title}</h3><p>${n.description}</p><div class="date">${new Date(n.published_at).toLocaleDateString('ko-KR')}</div></div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', () => {
+      initSupabase();
+      const saved = localStorage.getItem('currentUser');
+      if (saved) {
+        currentUser = JSON.parse(saved);
+        document.getElementById('programs-tab').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
